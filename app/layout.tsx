@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AnnouncementBanner from "@/components/AnnouncementBanner";
 import "./globals.css";
 
 export const viewport = {
@@ -60,7 +61,8 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <Navbar />
-        <main style={{ paddingTop: "64px" }}>{children}</main>
+        <AnnouncementBanner />
+        <main style={{ paddingTop: "100px" }}>{children}</main>
         <Footer />
       </body>
     </html>

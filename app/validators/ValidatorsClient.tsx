@@ -11,7 +11,16 @@ export default function ValidatorsClient({ data, peersData }: { data: any, peers
   const [showPeers, setShowPeers] = useState(false);
 
   const totalNodes = peersData?.peer_count ?? data?.validators.length ?? 0;
-  const totalStake = data.validators.reduce((sum: number, v: any) => sum + (v.stake_microunits || 0), 0) / 1_000_000;
+
+  // Filter out zombie genesis/bootstrap validators:
+  // - fully unstaked (stake = 0), OR
+  // - inactive AND offline AND never reported a version (hardcoded genesis validators that never ran)
+  const activeValidators = data.validators.filter((v: any) =>
+    v.stake_microunits > 0 &&
+    !(v.active === false && v.is_online === false && !v.node_version)
+  );
+
+  const totalStake = activeValidators.reduce((sum: number, v: any) => sum + (v.stake_microunits || 0), 0) / 1_000_000;
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -22,7 +31,7 @@ export default function ValidatorsClient({ data, peersData }: { data: any, peers
     }
   };
 
-  const sortedValidators = [...data.validators].sort((a, b) => {
+  const sortedValidators = [...activeValidators].sort((a, b) => {
     let aVal: any = a[sortField];
     let bVal: any = b[sortField];
     
@@ -49,7 +58,7 @@ export default function ValidatorsClient({ data, peersData }: { data: any, peers
           { label: "Total Nodes", value: totalNodes },
           { label: "BFT Active", value: data.active_count },
           { label: "Total Staked", value: totalStake.toLocaleString(undefined, { maximumFractionDigits: 0 }) + " QUA" },
-          { label: "Online Now", value: data.validators.filter((v: any) => v.is_online).length },
+          { label: "Online Now", value: activeValidators.filter((v: any) => v.is_online).length },
         ].map((s, i) => (
           <div key={i} style={{ padding: "24px 24px", background: "var(--c-bg)" }}>
             <div className="stat-val">{s.value}</div>

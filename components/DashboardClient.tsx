@@ -273,36 +273,70 @@ export default function DashboardClient({
       {/* ── STATS STRIP ── */}
       <div className="panel" style={{ borderRadius: 0, borderTop: "1px solid var(--c-border)", marginBottom: 40, borderLeft: "none", borderRight: "none" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }} className="stats-strip">
-          {[
-            { label: "Chain Height", value: Math.max(0, (initialStats?.chain_length || 1) - 1, dbBlocks.length > 0 ? dbBlocks[0].index : 0).toLocaleString() },
-            { label: "Network TPS", value: initialStats?.tps !== undefined ? initialStats.tps.toFixed(2) : "—" },
-            { label: "Validators", value: initialStats?.validator_count ? initialStats.validator_count.toString() : "—" },
-            { label: "Total Staked", value: initialStats?.total_staked ? (initialStats.total_staked / 1_000_000).toLocaleString() + " QUA" : "—" },
-            { label: "Circulating Supply", value: initialStats?.circulating_supply ? (initialStats.circulating_supply / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " QUA" : "—" },
-            { label: "Gas Tracker", value: (() => {
-                let totalFee = 0;
-                let feeTxCount = 0;
-                dbBlocks.forEach(b => {
-                    (b.transactions || []).forEach((tx: any) => {
-                        const payload = tx?.V2_Falcon512 || tx?.V1_Ed25519 || tx || {};
-                        if (payload.sender !== "COINBASE" && payload.sender !== "TREASURY") {
-                            totalFee += Number(payload.fee || 0);
-                            feeTxCount++;
-                        }
-                    });
-                });
-                if (feeTxCount === 0) return "0.001 QUA";
-                return ((totalFee / feeTxCount) / 1000000).toFixed(3) + " QUA";
-            })() },
-          ].map((s, i) => (
-            <div
-              key={i}
-              style={{ padding: "20px 24px", borderRight: i < 5 ? "1px solid var(--c-border)" : "none" }}
-            >
-              <div className="stat-val">{s.value}</div>
-              <div className="stat-lbl">{s.label}</div>
-            </div>
-          ))}
+          {(() => {
+            // Calculate avg block time from latest blocks for max TPS display
+            const MAX_TXS_PER_BLOCK = 2000;
+            let avgBlockSecs = 0;
+            if (dbBlocks.length >= 2) {
+              const times = dbBlocks
+                .map((b: any) => b.timestamp)
+                .filter(Boolean)
+                .sort((a: number, b: number) => b - a);
+              if (times.length >= 2) {
+                const diffs: number[] = [];
+                for (let i = 0; i < times.length - 1; i++) {
+                  const d = times[i] - times[i + 1];
+                  if (d > 0 && d < 120) diffs.push(d);
+                }
+                if (diffs.length > 0) {
+                  avgBlockSecs = diffs.reduce((a: number, b: number) => a + b, 0) / diffs.length;
+                }
+              }
+            }
+            const maxTps = avgBlockSecs > 0 ? (MAX_TXS_PER_BLOCK / avgBlockSecs).toFixed(0) : null;
+
+            const stats = [
+              { label: "Chain Height", value: Math.max(0, (initialStats?.chain_length || 1) - 1, dbBlocks.length > 0 ? dbBlocks[0].index : 0).toLocaleString(), sub: null },
+              {
+                label: "Network TPS",
+                value: initialStats?.tps !== undefined ? initialStats.tps.toFixed(2) : "—",
+                sub: maxTps ? `Max ${maxTps} TPS · ${avgBlockSecs.toFixed(1)}s blocks` : null,
+              },
+              { label: "Validators", value: initialStats?.validator_count ? initialStats.validator_count.toString() : "—", sub: initialStats?.validator_count ? `${initialStats.validator_count} / 21 max` : null },
+              { label: "Total Staked", value: initialStats?.total_staked ? (initialStats.total_staked / 1_000_000).toLocaleString() + " QUA" : "—", sub: null },
+              { label: "Circulating Supply", value: initialStats?.circulating_supply ? (initialStats.circulating_supply / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " QUA" : "—", sub: null },
+              { label: "Gas Tracker", value: (() => {
+                  let totalFee = 0;
+                  let feeTxCount = 0;
+                  dbBlocks.forEach((b: any) => {
+                      (b.transactions || []).forEach((tx: any) => {
+                          const payload = tx?.V2_Falcon512 || tx?.V1_Ed25519 || tx || {};
+                          if (payload.sender !== "COINBASE" && payload.sender !== "TREASURY") {
+                              totalFee += Number(payload.fee || 0);
+                              feeTxCount++;
+                          }
+                      });
+                  });
+                  if (feeTxCount === 0) return "0.001 QUA";
+                  return ((totalFee / feeTxCount) / 1000000).toFixed(3) + " QUA";
+              })(), sub: null },
+            ];
+
+            return stats.map((s, i) => (
+              <div
+                key={i}
+                style={{ padding: "20px 24px", borderRight: i < 5 ? "1px solid var(--c-border)" : "none" }}
+              >
+                <div className="stat-val">{s.value}</div>
+                <div className="stat-lbl">{s.label}</div>
+                {s.sub && (
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--c-accent)", marginTop: 4, letterSpacing: "0.04em" }}>
+                    {s.sub}
+                  </div>
+                )}
+              </div>
+            ));
+          })()}
         </div>
       </div>
 

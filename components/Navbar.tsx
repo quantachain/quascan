@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
+import { Search } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -19,8 +20,26 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data?.redirect) router.push(data.redirect);
+    } finally {
+      setSearching(false);
+      setQuery("");
+    }
+  };
 
   const { data: health } = useSWR('/api/health', fetcher, { refreshInterval: 10000 });
 
@@ -121,7 +140,70 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Right — Testnet badge */}
+        {/* Desktop search */}
+        <form
+          className="nav-desktop-right"
+          onSubmit={handleSearch}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "0 16px",
+            borderLeft: "1px solid var(--c-border)",
+          }}
+        >
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <Search size={13} style={{ position: "absolute", left: 10, color: "var(--c-text-3)", pointerEvents: "none" }} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search address, tx, block..."
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.75rem",
+                color: "var(--c-text-1)",
+                background: "var(--c-bg-alt)",
+                border: "1px solid var(--c-border-mid)",
+                borderRadius: 4,
+                padding: "6px 12px 6px 30px",
+                width: 220,
+                outline: "none",
+                transition: "border-color 0.15s, width 0.2s",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--c-accent-mid)";
+                e.currentTarget.style.width = "260px";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--c-border-mid)";
+                e.currentTarget.style.width = "220px";
+              }}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={searching}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.6875rem",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--c-accent)",
+              background: "var(--c-accent-dim)",
+              border: "1px solid var(--c-accent-mid)",
+              borderRadius: 4,
+              padding: "5px 12px",
+              cursor: "pointer",
+              opacity: searching ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {searching ? "..." : "Go"}
+          </button>
+        </form>
+
+        {/* Right — Katenet badge */}
         <div
           className="nav-desktop-right"
           style={{
@@ -129,11 +211,9 @@ export default function Navbar() {
             alignItems: "center",
             gap: 12,
             padding: "0 20px",
-            marginLeft: "auto",
             borderLeft: "1px solid var(--c-border)",
           }}
         >
-
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -146,7 +226,7 @@ export default function Navbar() {
               padding: "4px 10px",
             }}
           >
-            Testnet
+            Katenet
           </span>
         </div>
 
